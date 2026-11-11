@@ -17,6 +17,8 @@ COPY backend/pyproject.toml backend/uv.lock /app/backend/
 RUN cd /app/backend && uv sync --frozen --no-dev --no-install-project
 RUN uv pip install --python /app/backend/.venv/bin/python gunicorn==23.0.0
 COPY backend/ /app/backend/
+# O backend carrega idiomas de /app/locales durante o import da aplicação.
+COPY locales/ /app/locales/
 COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 COPY deploy/render/nginx.conf.template /etc/nginx/templates/mirofish.conf.template
 COPY deploy/render/start.sh /usr/local/bin/start-mirofish
