@@ -23,6 +23,6 @@ COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 COPY deploy/render/nginx.conf.template /etc/nginx/templates/mirofish.conf.template
 COPY deploy/render/start.sh /usr/local/bin/start-mirofish
 RUN chmod 755 /usr/local/bin/start-mirofish
-ENV PYTHONUNBUFFERED=1 FLASK_HOST=127.0.0.1 FLASK_PORT=5001 FLASK_DEBUG=False OASIS_DEFAULT_MAX_ROUNDS=3
+ENV PYTHONUNBUFFERED=1 FLASK_HOST=127.0.0.1 FLASK_PORT=5001 FLASK_DEBUG=False OASIS_DEFAULT_MAX_ROUNDS=3 MIROFISH_LOW_MEMORY_MODE=1
 EXPOSE 10000
 CMD ["/usr/local/bin/start-mirofish"]
