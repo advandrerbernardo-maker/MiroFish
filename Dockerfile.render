@@ -4,7 +4,7 @@ WORKDIR /app
 COPY frontend/ /app/frontend/
 COPY locales/ /app/locales/
 RUN npm ci --prefix frontend --no-audit --no-fund
-ENV VITE_API_BASE_URL=/
+ENV VITE_API_BASE_URL=/ VITE_MIROFISH_LOW_MEMORY=true
 RUN npm run build --prefix frontend
 
 FROM python:3.11-slim
