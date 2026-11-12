@@ -1585,6 +1585,17 @@ def start_simulation():
                 "error": t('api.invalidPlatform', platform=platform)
             }), 400
 
+        # Render 512 MiB: bloqueia uma segunda plataforma, chamadas longas
+        # e atualização contínua do grafo, inclusive para clientes em cache.
+        if os.environ.get('MIROFISH_LOW_MEMORY_MODE', '') == '1':
+            platform = 'reddit'
+            enable_graph_memory_update = False
+            max_rounds = min(max_rounds if max_rounds is not None else 3, 3)
+            logger.info(
+                'Modo econômico ativo: platform=reddit, max_rounds=%s, graph_update=false',
+                max_rounds,
+            )
+
         # 检查模拟是否已准备好
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
