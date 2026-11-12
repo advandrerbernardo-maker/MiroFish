@@ -1,0 +1,62 @@
+name: RADAR light checks
+on:
+  pull_request:
+    paths:
+      - "backend/app/api/radar_light.py"
+      - "backend/tests/test_radar_light.py"
+      - "backend/app/api/__init__.py"
+      - "backend/app/__init__.py"
+      - "frontend/public/radar-light.html"
+      - ".github/workflows/radar-light-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Python syntax
+        run: python -m compileall -q backend/app/api/radar_light.py backend/app/api/__init__.py backend/app/__init__.py backend/tests/test_radar_light.py
+      - name: Extract and check inline browser JavaScript
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Extract(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.inside=False
+                  self.code=[]
+              def handle_starttag(self, name, attrs):
+                  if name == "script" and not dict(attrs).get("src"):
+                      self.inside=True
+              def handle_endtag(self, name):
+                  if name == "script":
+                      self.inside=False
+              def handle_data(self, data):
+                  if self.inside:
+                      self.code.append(data)
+          p=Extract()
+          p.feed(Path("frontend/public/radar-light.html").read_text(encoding="utf-8"))
+          assert p.code, "Missing inline script"
+          Path("/tmp/radar-light-check.js").write_text("\n".join(p.code), encoding="utf-8")
+          PY
+          node --check /tmp/radar-light-check.js
+      - name: Enforce no OASIS call in the light endpoint
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s = Path("backend/app/api/radar_light.py").read_text(encoding="utf-8")
+          assert "SimulationRunner" not in s and "import oasis" not in s
+          assert "max_attempts=1" in s
+          assert "if _normalize(evidence) not in normalized_source:" in s
+          PY

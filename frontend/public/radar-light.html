@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101e38">
+  <title>RADAR 80/20 | Análise leve</title>
+  <style>
+    :root { color-scheme: light; font: 16px/1.5 system-ui, -apple-system, sans-serif; background:#f3f6fa; color:#15243c; }
+    * { box-sizing:border-box; }
+    body {margin:0;}
+    main {max-width:880px;margin:0 auto;padding:20px 16px 55px;}
+    header {background:#101e38;color:#fff;padding:25px 18px;}
+    header section {max-width:880px;margin:auto;}
+    header small {letter-spacing:.13em;text-transform:uppercase;color:#a7d9e2;}
+    h1 {font-size:clamp(1.5rem,4.5vw,2.3rem);margin:8px 0;line-height:1.25;}
+    h2 {font-size:1.2rem;margin:0 0 12px;}
+    p {margin:.5em 0 1em;}
+    .sub {color:#d2e0f0;max-width:710px;}
+    a {color:#16607e;}
+    header a {color:#b2ecf7;}
+    .card {background:#fff;border:1px solid #dce4ed;border-radius:15px;padding:19px;margin:18px 0;box-shadow:0 3px 14px #142b4b0a;}
+    .tag {display:inline-block;background:#e6f7f7;color:#13555c;font-size:.78rem;border-radius:30px;padding:4px 10px;font-weight:700;}
+    .note {font-size:.9rem;color:#50607a;}
+    label {display:block;font-weight:700;margin:18px 0 7px;}
+    input[type=file],input[type=text] {display:block;width:100%;max-width:100%;padding:13px;border-radius:8px;border:1px solid #a5b6cb;background:#fcfdff;color:#15243c;}
+    button {display:inline-block;border:0;border-radius:9px;background:#173b68;color:white;padding:13px 18px;font-weight:700;font-size:1rem;cursor:pointer;margin:15px 0 0;}
+    button:disabled {opacity:.5;cursor:not-allowed;}
+    button.secondary {background:#e8eef6;color:#173b68;}
+    .error {color:#9b2020;background:#fff0ef;border:1px solid #efc8c6;padding:13px;border-radius:8px;margin-top:12px;}
+    .topic {padding:15px 0;border-top:1px solid #e1e8ee;}
+    .topic h3 {font-size:1rem;margin:0 0 6px;}
+    .topic blockquote {background:#f3f8fb;border-left:3px solid #008f93;margin:9px 0;padding:10px 12px;overflow-wrap:anywhere;font-size:.9rem;}
+    .topic p {font-size:.93rem;}
+    .muted {color:#64748b;}
+    .grid {display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .grid section {min-width:0;}
+    details {margin-top:16px;}
+    details summary {cursor:pointer;color:#195078;font-weight:700;}
+    ul {padding-left:22px;}
+    #results[hidden],#error[hidden],#busy[hidden] {display:none;}
+    @media(max-width:650px) {.grid{grid-template-columns:1fr;}header{padding:22px 16px}.card{padding:16px;}}
+  </style>
+</head>
+<body>
+<header><section>
+  <small>MIROFISH / RADAR 80/20</small>
+  <h1>Análise jurídica leve</h1>
+  <p class="sub">Classificação documental com Gemini e consulta opcional ao grafo Zep. Sem iniciar OASIS, simulação de agentes ou rodadas.</p>
+  <a href="/">Voltar ao MiroFish original</a>
+</section></header>
+<main>
+  <div class="card">
+    <span class="tag">Modo econômico · FCC 2022–2023</span>
+    <h2 style="margin-top:12px">Envie o arquivo de treinamento</h2>
+    <p>Use o documento <strong>mirofish_treino_fcc_2022_2023.md</strong> que já está na pasta Downloads do celular.</p>
+    <form id="form">
+      <label for="file">Documento de questões resumidas (.md ou .txt)</label>
+      <input type="file" id="file" name="arquivo" required accept=".md,.txt,.markdown,text/plain,text/markdown">
+      <p class="note">Até 64 KB e 25 mil caracteres. O arquivo não é armazenado pelo modo leve.</p>
+      <details><summary>Consultar o Zep (opcional)</summary>
+        <label for="graph">ID do grafo existente</label>
+        <input type="text" id="graph" name="graph_id" maxlength="120" placeholder="mirofish_...">
+        <p class="note">Somente leitura. Os fatos do Zep são contexto adicional, não contam como provas ou questões oficiais.</p>
+      </details>
+      <button id="run" type="submit">Analisar com Gemini</button>
+    </form>
+    <p id="busy" class="note" hidden>Consultando o Gemini. É feita uma chamada de análise, sujeita à cota da sua API.</p>
+    <div id="error" class="error" role="alert" hidden></div>
+  </div>
+  <div id="results" hidden>
+    <div class="card">
+      <h2>Resultado exploratório</h2>
+      <p id="summary" class="note"></p>
+      <p><strong>Critério:</strong> prioridades qualitativas com trechos literais conferidos no documento. Não são frequências nem probabilidades de cobrança.</p>
+      <div class="grid"><section><h2>Direito Civil</h2><div id="civil"></div></section>
+        <section><h2>Direito Processual Civil</h2><div id="processual"></div></section></div>
+      <button id="copy" type="button" class="secondary">Copiar resultado JSON</button>
+    </div>
+    <div class="card"><h2>Limites da análise</h2><ul id="warnings"></ul>
+      <h2>Consulta ao Zep</h2><p id="zepStatus" class="note"></p><ul id="zepFacts"></ul>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  let last = null;
+  function node(tag, value, cls) {
+    const item = document.createElement(tag);
+    if (cls) item.className = cls;
+    item.textContent = value || '';
+    return item;
+  }
+  function renderTopics(target, items) {
+    target.replaceChildren();
+    if (!items.length) {
+      target.append(node('p','Nenhum subassunto com evidência literal suficiente foi confirmado.','muted'));
+      return;
+    }
+    items.forEach(item => {
+      const wrap = node('article', '', 'topic');
+      wrap.append(node('h3',item.posicao + '. ' + item.subassunto));
+      wrap.append(node('blockquote','“' + item.trecho_evidencia + '”'));
+      wrap.append(node('p',item.justificativa));
+      target.append(wrap);
+    });
+  }
+  function render(result) {
+    last = result;
+    $('results').hidden = false;
+    $('summary').textContent = result.arquivo + ' · ' + result.caracteres_lidos + ' caracteres lidos · ' +
+      result.topicos.length + ' subassuntos com trechos verificáveis';
+    renderTopics($('civil'), result.topicos.filter(i => i.disciplina === 'Direito Civil'));
+    renderTopics($('processual'), result.topicos.filter(i => i.disciplina === 'Direito Processual Civil'));
+    $('warnings').replaceChildren();
+    (result.avisos || []).forEach(w => $('warnings').append(node('li',w)));
+    const z = result.zep || {};
+    const captions = {nao_solicitado:'Não solicitado.',consultado:'Grafo consultado somente para contexto.',indisponivel:'Consulta indisponível. O ranking não depende dela.',id_invalido:'ID inválido.'};
+    $('zepStatus').textContent = captions[z.estado] || 'Não disponível.';
+    $('zepFacts').replaceChildren();
+    (z.fatos || []).forEach(f => $('zepFacts').append(node('li',f)));
+    $('results').scrollIntoView({behavior:'smooth'});
+  }
+  $('form').addEventListener('submit', async event => {
+    event.preventDefault();
+    $('results').hidden = true;
+    $('error').hidden = true;
+    const file = $('file').files[0];
+    if (!file) return;
+    if (file.size > 65536) { $('error').textContent='O arquivo excede 64 KB.'; $('error').hidden=false; return; }
+    const data = new FormData();
+    data.append('arquivo', file);
+    const graph = $('graph').value.trim();
+    if (graph) data.append('graph_id', graph);
+    $('run').disabled = true;
+    $('busy').hidden = false;
+    try {
+      const response = await fetch('/api/radar-light/analyze',{method:'POST',body:data});
+      const body = await response.json();
+      if (!response.ok || !body.success) throw new Error(body.error || 'Erro na análise.');
+      render(body);
+    } catch(error) {
+      $('error').textContent = error.message || 'Falha ao conectar à API.';
+      $('error').hidden = false;
+    } finally {
+      $('run').disabled = false;
+      $('busy').hidden = true;
+    }
+  });
+  $('copy').addEventListener('click', async () => {
+    if (!last) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(last,null,2));
+      $('copy').textContent = 'Resultado copiado';
+    } catch (_) { $('copy').textContent = 'Permissão de cópia não disponível'; }
+  });
+})();
+</script>
+</body>
+</html>

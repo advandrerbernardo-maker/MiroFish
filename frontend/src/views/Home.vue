@@ -11,6 +11,12 @@
       </div>
     </nav>
 
+    <div style="max-width:1080px;margin:18px auto 0;padding:0 18px;">
+      <a href="/radar-light.html" style="display:block;border:1px solid #9bc7ca;background:#e8f8f8;color:#104c54;border-radius:10px;padding:14px 18px;font-weight:700;text-decoration:none;">
+        RADAR 80/20: análise leve da FCC (sem simulação OASIS) →
+      </a>
+    </div>
+
     <div class="main-content">
       <!-- 上半部分：Hero 区域 -->
       <section class="hero-section">
