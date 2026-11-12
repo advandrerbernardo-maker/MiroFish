@@ -395,19 +395,26 @@ const doStartSimulation = async () => {
   emit('update-status', 'processing')
   
   try {
+    // O plano gratuito do Render (512 MiB) não suporta a execução dupla com
+    // atualização contínua do grafo. Modo econômico é ativado no Dockerfile.render.
+    const lowMemoryMode = import.meta.env.VITE_MIROFISH_LOW_MEMORY === 'true'
     const params = {
       simulation_id: props.simulationId,
-      platform: 'parallel',
-      force: true,  // 强制重新开始
-      enable_graph_memory_update: true  // 开启动态图谱更新
+      platform: lowMemoryMode ? 'reddit' : 'parallel',
+      force: true,
+      enable_graph_memory_update: !lowMemoryMode
     }
-    
-    if (props.maxRounds) {
-      params.max_rounds = props.maxRounds
-      addLog(t('log.setMaxRounds', { rounds: props.maxRounds }))
+
+    if (lowMemoryMode) {
+      params.max_rounds = Math.min(props.maxRounds || 3, 3)
+      addLog('Modo econômico RADAR: um ambiente, 3 rodadas, sem atualização contínua do grafo.')
+    } else {
+      if (props.maxRounds) {
+        params.max_rounds = props.maxRounds
+        addLog(t('log.setMaxRounds', { rounds: props.maxRounds }))
+      }
+      addLog(t('log.graphMemoryUpdateEnabled'))
     }
-    
-    addLog(t('log.graphMemoryUpdateEnabled'))
     
     const res = await startSimulation(params)
     
